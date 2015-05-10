@@ -18,7 +18,7 @@ initialize_db_id() {
     declare -a DATABASE_IDS=()
     FILES=$DOKKU_ROOT/**/REDIS_DB
 
-    if [[ ! -a $FILES[0] ]]; then
+    if [[ ! -n $(ls $FILES) ]]; then
       echo "no databases used"
     else
 
