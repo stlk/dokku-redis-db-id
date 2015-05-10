@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+source "$(dirname $0)/../common/functions"
+
+APP="$2"
+
+initialize_db_id() {
+  _app=$1
+  echo "initializing db for $_app"
+  ID_FILE=$DOKKU_ROOT/$_app/REDIS_DB
+  AVAILABLE_ID=-1
+
+  if [[ -n "$_app" ]]&&[[ -a "$ID_FILE" ]]; then
+    echo "file exists for $_app"
+    AVAILABLE_ID=`cat $ID_FILE`
+  else
+
+    declare -a DATABASE_IDS=()
+    FILES=$DOKKU_ROOT/**/REDIS_DB
+
+    if [[ ! -a $FILES[0] ]]; then
+      echo "no databases used"
+    else
+
+      # Load all used ids
+      for f in $FILES
+      do
+        echo "app $f"
+        DATABASE_IDS=("${DATABASE_IDS[@]}" `cat $f`)
+      done
+
+      echo ${DATABASE_IDS[@]}
+
+    fi
+
+    # Find first available id
+    for i in {0..15}
+    do
+      if [[ " ${DATABASE_IDS[*]} " != *" $i "* ]]; then
+        AVAILABLE_ID=$i
+        mkdir -p $DOKKU_ROOT/$_app
+        echo $AVAILABLE_ID > $ID_FILE
+        echo "saved id $i for $_app"
+        break
+      fi
+    done
+
+  echo "id for $_app is $AVAILABLE_ID"
+  dokku config:set $_app REDIS_DB=$AVAILABLE_ID
+
+  fi
+}
+
+case "$1" in
+  redisid:pre_build)
+    initialize_db_id $APP
+    ;;
+
+  help)
+    cat && cat<<EOF
+    nothing
+EOF
+    ;;
+
+  *)
+    exit $DOKKU_NOT_IMPLEMENTED_EXIT
+    ;;
+
+esac
